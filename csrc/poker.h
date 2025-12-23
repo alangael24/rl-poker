@@ -666,6 +666,17 @@ static int apply_action(PokerEnv* env, int action) {
 }
 
 // ============================================================================
+// Action Masking
+// ============================================================================
+
+static void get_action_mask(PokerEnv* env, uint8_t* mask) {
+    // mask[0] = fold, mask[1] = call/check, mask[2] = raise
+    mask[0] = 1;  // Fold siempre legal
+    mask[1] = 1;  // Call/check siempre legal
+    mask[2] = (env->raises_this_round < env->max_raises) ? 1 : 0;
+}
+
+// ============================================================================
 // Observation Generation
 // ============================================================================
 
@@ -793,10 +804,18 @@ static void batch_env_reset(PokerBatchEnv* batch) {
     }
 }
 
-static void batch_env_step(PokerBatchEnv* batch, int* actions) {
+static void batch_env_step(PokerBatchEnv* batch, int* actions, int* effective_actions) {
     for (int i = 0; i < batch->num_envs; i++) {
         PokerEnv* env = &batch->envs[i];
         int player = env->current_player;
+
+        // Track effective action (raise might become call if capped)
+        int action = actions[i];
+        if (action == 2 && env->raises_this_round >= env->max_raises) {
+            effective_actions[i] = 1;  // Raise capped to call
+        } else {
+            effective_actions[i] = action;
+        }
 
         // Apply action
         apply_action(env, actions[i]);

@@ -64,7 +64,8 @@ class PokerPufferEnv(pufferlib.PufferEnv):
         self._hands_played = 0
         self._total_reward = 0.0
         self._total_decisions = 0
-        self._action_counts = [0, 0, 0]  # [fold, call, raise]
+        self._action_counts = [0, 0, 0]  # [fold, call, raise] - requested
+        self._effective_counts = [0, 0, 0]  # [fold, call, raise] - effective
 
     @property
     def emulated(self):
@@ -75,7 +76,7 @@ class PokerPufferEnv(pufferlib.PufferEnv):
         return self.observations, []
 
     def step(self, actions):
-        self._c_env.step(actions)
+        _, _, _, _, info = self._c_env.step(actions)
         self.terminals[:] = self._terms_u8
         self.truncations[:] = self._truncs_u8
 
@@ -84,9 +85,14 @@ class PokerPufferEnv(pufferlib.PufferEnv):
         self._total_reward += self.rewards.sum()
         self._total_decisions += len(actions)
 
-        # Track action frequencies
+        # Track requested actions
         for a in actions:
             self._action_counts[a] += 1
+
+        # Track effective actions (raise might be capped to call)
+        if 'effective_actions' in info:
+            for a in info['effective_actions']:
+                self._effective_counts[a] += 1
 
         return self.observations, self.rewards, self.terminals, self.truncations, []
 
@@ -201,14 +207,23 @@ if __name__ == "__main__":
                 hands = env._hands_played
                 decisions = env._total_decisions
                 dec_per_hand = decisions / max(1, hands)
-                total_actions = sum(env._action_counts)
-                if total_actions > 0:
-                    fold_pct = env._action_counts[0] / total_actions * 100
-                    call_pct = env._action_counts[1] / total_actions * 100
-                    raise_pct = env._action_counts[2] / total_actions * 100
+
+                # Effective actions (what actually happened)
+                total_eff = sum(env._effective_counts)
+                if total_eff > 0:
+                    fold_pct = env._effective_counts[0] / total_eff * 100
+                    call_pct = env._effective_counts[1] / total_eff * 100
+                    raise_pct = env._effective_counts[2] / total_eff * 100
                 else:
                     fold_pct = call_pct = raise_pct = 0
-                print(f"  [Epoch {trainer.epoch}] Hands: {hands:,} | Dec/hand: {dec_per_hand:.1f} | Fold: {fold_pct:.1f}% Call: {call_pct:.1f}% Raise: {raise_pct:.1f}%")
+
+                # Capped raises (requested raise but capped to call)
+                req_raise = env._action_counts[2]
+                eff_raise = env._effective_counts[2]
+                capped = req_raise - eff_raise if req_raise > eff_raise else 0
+                capped_pct = capped / max(1, req_raise) * 100 if req_raise > 0 else 0
+
+                print(f"  [Epoch {trainer.epoch}] Hands: {hands:,} | Dec/hand: {dec_per_hand:.1f} | Fold: {fold_pct:.1f}% Call: {call_pct:.1f}% Raise: {raise_pct:.1f}% (capped: {capped_pct:.0f}%)")
 
     except KeyboardInterrupt:
         print("\nInterrumpido")

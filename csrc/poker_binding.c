@@ -116,12 +116,20 @@ static PyObject* PokerBatchEnvObject_step(PokerBatchEnvObject* self, PyObject* a
     PyArrayObject* actions_int = (PyArrayObject*)PyArray_Cast(actions_array, NPY_INT32);
     if (!actions_int) return NULL;
 
+    // Create effective_actions array
+    npy_intp dims[1] = {self->batch.num_envs};
+    PyArrayObject* effective = (PyArrayObject*)PyArray_ZEROS(1, dims, NPY_INT32, 0);
+
     int* actions = (int*)PyArray_DATA(actions_int);
-    batch_env_step(&self->batch, actions);
+    int* eff = (int*)PyArray_DATA(effective);
+    batch_env_step(&self->batch, actions, eff);
 
     Py_DECREF(actions_int);
 
     PyObject* info = PyDict_New();
+    PyDict_SetItemString(info, "effective_actions", (PyObject*)effective);
+    Py_DECREF(effective);
+
     Py_INCREF(self->obs_array);
     Py_INCREF(self->reward_array);
     Py_INCREF(self->terminal_array);
