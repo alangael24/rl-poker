@@ -1,0 +1,27 @@
+__pycache__/
+*.py[cod]
+*.so
+build/
+dist/
+*.egg-info/
+
+# Models
+*.pt
+*.pth
+
+# Logs
+logs/
+wandb/
+
+# IDE
+.vscode/
+.idea/
+
+# Env
+.venv/
+venv/
+
+# Security
+*.pem
+*.key
+private_key*
