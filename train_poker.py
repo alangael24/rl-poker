@@ -63,6 +63,8 @@ class PokerPufferEnv(pufferlib.PufferEnv):
         # Stats
         self._hands_played = 0
         self._total_reward = 0.0
+        self._total_decisions = 0
+        self._action_counts = [0, 0, 0]  # [fold, call, raise]
 
     @property
     def emulated(self):
@@ -80,6 +82,11 @@ class PokerPufferEnv(pufferlib.PufferEnv):
         # Track stats
         self._hands_played += self.terminals.sum()
         self._total_reward += self.rewards.sum()
+        self._total_decisions += len(actions)
+
+        # Track action frequencies
+        for a in actions:
+            self._action_counts[a] += 1
 
         return self.observations, self.rewards, self.terminals, self.truncations, []
 
@@ -190,8 +197,17 @@ if __name__ == "__main__":
 
             if trainer.epoch % 100 == 0:
                 env = vecenv.envs[0] if hasattr(vecenv, 'envs') else vecenv
-                avg_reward = env._total_reward / max(1, env._hands_played) if hasattr(env, '_hands_played') else 0
-                print(f"  [Epoch {trainer.epoch}] Hands: {env._hands_played:,}, Avg reward: {avg_reward:.4f}")
+                hands = env._hands_played
+                decisions = env._total_decisions
+                dec_per_hand = decisions / max(1, hands)
+                total_actions = sum(env._action_counts)
+                if total_actions > 0:
+                    fold_pct = env._action_counts[0] / total_actions * 100
+                    call_pct = env._action_counts[1] / total_actions * 100
+                    raise_pct = env._action_counts[2] / total_actions * 100
+                else:
+                    fold_pct = call_pct = raise_pct = 0
+                print(f"  [Epoch {trainer.epoch}] Hands: {hands:,} | Dec/hand: {dec_per_hand:.1f} | Fold: {fold_pct:.1f}% Call: {call_pct:.1f}% Raise: {raise_pct:.1f}%")
 
     except KeyboardInterrupt:
         print("\nInterrumpido")
