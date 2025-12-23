@@ -160,6 +160,7 @@ if __name__ == "__main__":
     args['train']['minibatch_size'] = 65536
     args['train']['bptt_horizon'] = 8
     args['train']['update_epochs'] = 1
+    args['train']['ent_coef'] = 0.05  # Forzar exploración (default ~0.01)
 
     NUM_ENVS = cli_args.num_envs
     NUM_PLAYERS = cli_args.num_players
