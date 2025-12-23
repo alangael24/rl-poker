@@ -139,16 +139,23 @@ if __name__ == "__main__":
     print("TEXAS HOLD'EM LIMIT POKER - SELF-PLAY")
     print("=" * 60)
 
+    # CLI oficial de PufferLib - permite --train.device cuda, --train.total-timesteps, etc.
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--num-envs', type=int, default=131072)
+    parser.add_argument('--num-players', type=int, default=6)
+    cli_args, remaining = parser.parse_known_args()
+
     args = pufferl.load_config('default')
     args['train']['env'] = 'poker'
-    args['train']['total_timesteps'] = 1_000_000_000  # 1B pasos
+    args['train']['total_timesteps'] = args['train'].get('total_timesteps', 1_000_000_000)
     args['train']['learning_rate'] = 3e-4
     args['train']['minibatch_size'] = 65536
     args['train']['bptt_horizon'] = 8
     args['train']['update_epochs'] = 1
 
-    NUM_ENVS = 131072  # 128K envs para max throughput
-    NUM_PLAYERS = 6
+    NUM_ENVS = cli_args.num_envs
+    NUM_PLAYERS = cli_args.num_players
 
     vecenv = pufferlib.vector.make(
         PokerPufferEnv,
